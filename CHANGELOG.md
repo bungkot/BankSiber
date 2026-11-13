@@ -3,6 +3,23 @@
 All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.2.1] - 2026-11-13
+
+### Changed — two-component separation and test↔source contract
+- The project is now presented as **two components**: the bank lab (target:
+  `core/`, `storage/`, `banking/`, `webapp/`) and the assessor tool
+  (`pentest/`, `research/`, `cli/`). README architecture section and all
+  docs updated; the bank never imports tool packages and the tool never
+  mutates lab data.
+- Test suite split to mirror the components: `tests/lab/` (behaviour of the
+  bank under study) and `tests/tool/` (the pentest/research tooling as a
+  product). Shared fixtures stay in `tests/conftest.py`.
+- New `tests/test_source_contract.py`: every public function or class in
+  `securebank_lab` must be referenced by the test suite or be listed in a
+  documented exclusion table — tests can no longer claim anything the source
+  does not provide, and stale exclusions (function removed, or now actually
+  referenced) fail the build.
+
 ## [2.2.0] - 2026-11-13
 
 ### Added — complete OWASP Top 10 (2021) coverage (A01–A10)

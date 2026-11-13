@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "securebank-research"
-version = "2.2.0"
+version = "2.2.1"
 description = "Cybersecurity research lab: vulnerable & secure bank implementations for attack surface analysis, threat modeling, and security control validation"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -77,6 +77,8 @@ select = [
 "src/securebank_lab/pentest/cli.py" = ["T201"]
 "src/securebank_lab/research/analyzer.py" = ["T201", "PLR0913", "PLR0917"]
 "src/securebank_lab/research/cli.py" = ["T201"]
+# The source-contract table is tabular data; reason strings read best unwrapped.
+"tests/test_source_contract.py" = ["E501"]
 "src/securebank_lab/research/threat_model.py" = ["T201", "PLR0911"]
 "src/securebank_lab/webapp/server.py" = ["T201"]
 "tests/*" = ["S101", "S105", "S106", "S104", "PLR2004", "PLC0415"]
