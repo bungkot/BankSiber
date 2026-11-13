@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "securebank-research"
-version = "2.1.0"
+version = "2.2.0"
 description = "Cybersecurity research lab: vulnerable & secure bank implementations for attack surface analysis, threat modeling, and security control validation"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -27,7 +27,9 @@ src/securebank_lab/
 ├── storage/     SQLite schema, seed data, connection lifecycle
 ├── banking/     business logic: AccountService protocol
 │                  ├── vulnerable.py  (documented flaws)
-│                  └── secure.py      (hardened counterpart)
+│                  ├── secure.py      (hardened counterpart)
+│                  ├── integrity.py   (A08: MD5 vs keyed HMAC export stamps)
+│                  └── importer.py    (A10: unrestricted vs allowlisted fetch)
 ├── webapp/      Flask factory, thin routes, CSRF/headers/auth guard, server
 ├── research/    headless analysis: posture analyzer + threat model
 ├── pentest/     loopback-only non-destructive assessment tool
@@ -52,7 +54,7 @@ python -m securebank_lab pentest http://127.0.0.1:5000
 python -m securebank_lab pentest http://127.0.0.1:5001 --fail-on-vulnerable  # CI gate
 ```
 
-Expected result: **8 confirmed findings** against vulnerable mode, **0**
+Expected result: **11 confirmed findings** against vulnerable mode, **0**
 against secure mode. The same command therefore verifies your own fixes.
 
 Demo accounts (also in `src/securebank_lab/storage/database.py`):
@@ -87,23 +89,30 @@ See `docs/METHODOLOGY.md` and `docs/THREAT_MODEL.md` for the reasoning.
 
 | Finding | Category | Vulnerable code | Fix |
 |---|---|---|---|
-| 3.1 SQL injection | Injection | `banking/vulnerable.py:authenticate, .search_transactions` | Bound parameters in `banking/secure.py` |
-| 3.2 IDOR | Broken Access Control | `.get_transactions` (no owner check) | Ownership check, uniform 404 |
-| 3.3 Default creds / no lockout | Authentication Failures | `authenticate`, `DEMO_CREDENTIALS` | Hashed passwords, lockout, audit log |
-| 3.4 XSS | Injection | `templates/search.html` (`\|safe`) | Autoescaping, CSP |
-| 3.5 Misconfiguration | Security Misconfiguration | weak `SECRET_KEY`, no headers, banner | `webapp/security.py:SECURITY_HEADERS`, random key, cookie flags |
-| 3.7 Insecure design | Insecure Design | `.transfer` (negative amounts, no limits) | `parse_amount_cents`, limits, atomic SQL |
-| 3.8 Exceptions | Mishandling of Exceptional Conditions | `handle_unexpected` leaks traceback | Generic page + error id, details in log |
-| (plaintext storage) | Cryptographic Failures | plaintext `users.password` | scrypt hashes |
+| 3.1 SQL injection | Injection (A03) | `banking/vulnerable.py:authenticate, .search_transactions` | Bound parameters in `banking/secure.py` |
+| 3.2 IDOR | Broken Access Control (A01) | `.get_transactions` (no owner check) | Ownership check, uniform 404 |
+| 3.3 Default creds / no lockout | Authentication Failures (A07) | `authenticate`, `DEMO_CREDENTIALS` | Hashed passwords, lockout, audit log |
+| 3.4 XSS | Injection (A03) | `templates/search.html` (`\|safe`) | Autoescaping, CSP |
+| 3.5 Misconfiguration | Security Misconfiguration (A05) | weak `SECRET_KEY`, no headers, banner | `webapp/security.py:SECURITY_HEADERS`, random key, cookie flags |
+| 3.7 Insecure design | Insecure Design (A04) | `.transfer` (negative amounts, no limits) | `parse_amount_cents`, limits, atomic SQL |
+| 3.8 Exceptions | Security Misconfiguration (A05) | `handle_unexpected` leaks traceback | Generic page + error id, details in log |
+| (plaintext storage) | Cryptographic Failures (A02) | plaintext `users.password` | scrypt hashes |
+| Version disclosure + EOL dependency | Vulnerable & Outdated Components (A06) | `webapp/routes.py:about`, MD5 primitive | Minimal `/about`, inventoried deps, HMAC |
+| Unkeyed MD5 export stamp | Software & Data Integrity Failures (A08) | `banking/integrity.py:LegacyIntegrityStamper` | `HmacIntegrityStamper` (keyed HMAC-SHA256) |
+| Silent security events | Security Logging & Monitoring Failures (A09) | no audit logging anywhere | structured `securebank.audit` events |
+| Statement import fetches any URL | Server-Side Request Forgery (A10) | `banking/importer.py:VulnerableStatementImporter` | https + host allowlist, fails closed |
 
-Verify category numbering against <https://owasp.org/Top10/> before quoting —
-OWASP renames and reorders categories between editions.
+All **ten** OWASP Top 10 (2021) categories are covered — verified by
+`tests/test_owasp_coverage.py`. Verify numbering against
+<https://owasp.org/Top10/> before quoting — OWASP renames and reorders
+categories between editions.
 
 ## The assessment tool (`securebank-pentest`)
 
-Eight non-destructive probes (login/search SQL injection, IDOR, default
-credentials, reflected XSS, security headers, cookie flags, verbose errors).
-Built-in guard rails, all covered by tests:
+Eleven non-destructive probes (login/search SQL injection, IDOR, default
+credentials, reflected XSS, security headers, cookie flags, verbose errors,
+component disclosure, forgeable export stamp, SSRF). Built-in guard rails,
+all covered by tests:
 
 * The HTTP client only accepts `http(s)` URLs whose host is loopback
   (`127.0.0.1`, `::1`, `localhost`); the check lives in the client
@@ -113,8 +122,10 @@ Built-in guard rails, all covered by tests:
   harmless computed marker instead of reading real records.
 * Exit codes: `2` = target refused, `1` = flaw found (with `--fail-on-vulnerable`).
 
-Not probed (state-changing): negative transfers and account lockout — proven
-in `tests/test_business_logic.py` and `tests/test_authentication.py`.
+Not probed (state-changing or server-side-only): negative transfers and
+account lockout are proven in `tests/test_business_logic.py` and
+`tests/test_authentication.py`; security logging/monitoring (A09) needs
+server-side log visibility and is proven in `tests/test_logging.py`.
 
 ## Quality gates
 

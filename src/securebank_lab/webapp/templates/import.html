@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Import statement{% endblock %}
+{% block content %}
+<h1>Import external statement</h1>
+<p>Paste the URL of a CSV statement provided by your bank.</p>
+<form method="get" action="{{ url_for('bank.import_statement') }}">
+  <input name="url" value="{{ url or '' }}" size="60">
+  <button type="submit">Fetch</button>
+</form>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% if preview is not none %}<pre>{{ preview }}</pre>{% endif %}
+{% endblock %}

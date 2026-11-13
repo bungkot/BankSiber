@@ -25,6 +25,10 @@ securebank-threat-model --mode secure
 | TA-003 | Session Hijacker | competent | unauthorised access | cookie forgery (weak secret), CSRF |
 | TA-004 | Privilege Escalator | competent | data theft | IDOR on account ids |
 | TA-005 | Reconnaissance Actor | script kiddie | information gathering | stack traces, verbose errors |
+| TA-006 | Component Reconnaissance | script kiddie | information gathering | version fingerprinting, EOL dependency lookup |
+| TA-007 | Data Meddler | competent | fraud | export tampering, unkeyed MD5 stamp forgery |
+| TA-008 | Internal Service Prober | competent | information gathering | SSRF, `file://` abuse, internal scanning |
+| — | Silent Intruder (implicit) | any | any | benefits from A09: no security events are logged |
 
 ## Attack vectors (summary)
 
@@ -36,7 +40,11 @@ securebank-threat-model --mode secure
 | A07-001 | Default credentials, no lockout | A07 | low | confirmed → mitigated |
 | A05-001 | Weak `SECRET_KEY` | A05 | medium | confirmed → mitigated |
 | A04-001 | Negative/unlimited transfers | A04 | medium | confirmed → mitigated |
-| A10-001 | Stack-trace disclosure | A10 | medium | confirmed → mitigated |
+| A05-002 | Stack-trace disclosure | A05 | medium | confirmed → mitigated |
+| A06-001 | Version disclosure + EOL dependency | A06 | low | confirmed → mitigated |
+| A08-001 | Forgeable MD5 export stamp | A08 | low | confirmed → mitigated |
+| A09-001 | No security logging/monitoring | A09 | low | confirmed → mitigated |
+| A10-001 | SSRF via statement import (`file://`, internal http) | A10 | low | confirmed → mitigated |
 | PT-05/06/07 | XSS, missing headers, cookie flags | — | low–medium | confirmed → mitigated |
 
 ## Risk picture (relative, lab-scoped)
@@ -51,7 +59,12 @@ vectors weigh 0.3 and risk concentrates in *residual* concerns only.
 * Lockout is per-account and in-memory-of-DB only; distributed credential
   stuffing would need rate limiting at the proxy layer.
 * No TLS in the lab: HSTS/`Secure` flags only engage with `cookie_secure=True`.
-* Audit logging is a Python logger — no integrity protection or alerting.
+* Audit logging is a Python logger — no integrity protection or alerting
+  pipeline (modelled as `log_integrity_protection: none` in the research
+  analyzer); a production deployment would ship logs to centralised,
+  integrity-protected storage.
+* The `statements.lab.internal` allowlist is fictional — it demonstrates the
+  *control shape* (deny by default), not a real integration.
 
 ## Assumptions and trust boundaries
 

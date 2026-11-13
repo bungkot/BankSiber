@@ -3,6 +3,34 @@
 All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.2.0] - 2026-11-13
+
+### Added — complete OWASP Top 10 (2021) coverage (A01–A10)
+- **A06 Vulnerable & Outdated Components**: `/about` discloses exact
+  framework versions and a simulated past-EOL dependency in vulnerable
+  mode; secure mode answers without component detail.
+  Probe PT-09 + `tests/test_component_exposure.py`.
+- **A08 Software & Data Integrity Failures**: ledger export stamped with
+  unkeyed MD5 (forgeable) in vulnerable mode; keyed HMAC-SHA256 in secure
+  mode (`banking/integrity.py`).
+  Probe PT-10 + `tests/test_integrity.py`.
+- **A09 Security Logging & Monitoring Failures**: vulnerable mode logs no
+  security events; secure mode emits structured `securebank.audit` events
+  for failed logins, denials and rejected imports. Verified white-box
+  (`tests/test_logging.py`) and reported by the research analyzer.
+- **A10 Server-Side Request Forgery**: `/import/statement` fetches
+  attacker-supplied URLs with any scheme (including `file://`) in
+  vulnerable mode; secure mode enforces https + destination-host allowlist
+  (`banking/importer.py`).
+  Probe PT-11 + `tests/test_ssrf.py`.
+- `tests/test_owasp_coverage.py`: meta-test asserting all ten categories
+  are enumerated, confirmed in vulnerable mode and mitigated in secure mode.
+- Verbose-error finding relabelled `A10-001` → `A05-002` (it belongs to
+  Security Misconfiguration); A10 is now a real SSRF finding.
+- Research analyzer: `analyze_logging()` posture, new endpoint counts,
+  updated evidence/component maps; threat model gains actors TA-006/007/008.
+- Pentest tool: 11 probes; expected result 11 vulnerable / 0 secure.
+
 ## [2.1.0] - 2026-11-13
 
 ### Changed — architecture restructure

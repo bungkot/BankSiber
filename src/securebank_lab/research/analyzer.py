@@ -57,6 +57,7 @@ class AttackSurface:
     session_management: dict[str, Any]
     cryptographic_status: dict[str, Any]
     headers: dict[str, Any]
+    logging_monitoring: dict[str, Any]
     generated_at: str
 
 
@@ -215,6 +216,17 @@ class ResearchAnalyzer:
             "cache_control": suffix,
         }
 
+    def analyze_logging(self) -> dict[str, Any]:
+        """Security logging and monitoring posture (OWASP A09)."""
+        vulnerable = self.mode is Mode.VULNERABLE
+        return {
+            "security_event_logging": "disabled" if vulnerable else "enabled",
+            "failed_login_logged": not vulnerable,
+            "access_denials_logged": not vulnerable,
+            "alerting": "none" if vulnerable else "audit logger",
+            "log_integrity_protection": "none",
+        }
+
     def enumerate_vulnerabilities(self) -> tuple[VulnerabilityFinding, ...]:
         """Structured enumeration mapped to the OWASP Top 10 categories."""
         now = datetime.now(timezone.utc).isoformat()
@@ -324,16 +336,74 @@ class ResearchAnalyzer:
             "banking/vulnerable.py:authenticate; storage/database.py",
         )
 
-        # A10:2021 - Mishandling of Exceptional Conditions
+        # A05:2021 - Security Misconfiguration (verbose errors)
         finding(
-            "A10-001",
+            "A05-002",
             "Error Detail Disclosure",
-            "Mishandling of Exceptional Conditions",
+            "Security Misconfiguration",
             "Medium",
             "Unhandled exceptions return the full Python stack trace to the client",
             "Return generic error messages to clients; log full details "
             "server-side; include a request id for correlation",
             "webapp/app.py:handle_unexpected",
+        )
+
+        # A06:2021 - Vulnerable and Outdated Components
+        finding(
+            "A06-001",
+            "Component Version Disclosure and Outdated Dependency",
+            "Vulnerable and Outdated Components",
+            "Medium",
+            "Anonymous visitors can read exact framework versions and a "
+            "pinned dependency that is past end of life via /about; the "
+            "export path also relies on the deprecated MD5 primitive",
+            "Inventory dependencies (SBOM), remove version disclosure, "
+            "upgrade or replace anything past end of life",
+            "webapp/routes.py:about; banking/integrity.py",
+        )
+
+        # A08:2021 - Software and Data Integrity Failures
+        finding(
+            "A08-001",
+            "Forgeable Ledger Export Integrity Stamp",
+            "Software and Data Integrity Failures",
+            "High",
+            "Ledger exports are stamped with unkeyed MD5; anyone can edit "
+            "the export and recompute the stamp, so tampering is undetectable",
+            "Sign exports with keyed HMAC-SHA256 using a server-side secret; "
+            "verify the signature on import",
+            "banking/integrity.py:LegacyIntegrityStamper; "
+            "webapp/routes.py:ledger_export",
+        )
+
+        # A09:2021 - Security Logging and Monitoring Failures
+        finding(
+            "A09-001",
+            "No Security Event Logging or Monitoring",
+            "Security Logging and Monitoring Failures",
+            "High",
+            "Failed logins, denied access attempts and rejected imports are "
+            "not logged anywhere; there is no alerting, so an ongoing attack "
+            "is invisible",
+            "Log every security-relevant event (auth failures, denials, "
+            "validation rejects) with structured fields; route to central "
+            "monitoring with alerting",
+            "banking/vulnerable.py; webapp/routes.py:import_statement",
+        )
+
+        # A10:2021 - Server-Side Request Forgery
+        finding(
+            "A10-001",
+            "Server-Side Request Forgery via Statement Import",
+            "Server-Side Request Forgery",
+            "High",
+            "The statement importer fetches any URL supplied by the user, "
+            "including file:// and internal http:// resources, with no "
+            "scheme or host validation",
+            "Allowlist the URL scheme and destination host; deny internal "
+            "and link-local addresses; cap response size",
+            "banking/importer.py:VulnerableStatementImporter; "
+            "webapp/routes.py:import_statement",
         )
 
         return tuple(findings)
@@ -357,16 +427,18 @@ class ResearchAnalyzer:
 
         return AttackSurface(
             mode=self.mode,
-            total_services=5,  # authenticate, list, get, search, transfer
-            # /login, /, /accounts/<id>/transactions, /search, /transfer
-            total_endpoints=5,
+            total_services=8,  # banking ops + export, import, component info
+            # /login, /, /accounts/<id>/transactions, /search, /transfer,
+            # /about, /accounts/ledger/export, /import/statement
+            total_endpoints=8,
             vulnerable_components=len(components) if vulnerable else 0,
-            authenticated_endpoints=4,
-            unauthenticated_endpoints=1,
+            authenticated_endpoints=6,
+            unauthenticated_endpoints=2,
             database_exposures=database_exposures,
             session_management=self.analyze_session_management(),
             cryptographic_status=self.analyze_cryptography(),
             headers=self.analyze_security_headers(),
+            logging_monitoring=self.analyze_logging(),
             generated_at=datetime.now(timezone.utc).isoformat(),
         )
 
@@ -420,6 +492,7 @@ class ResearchAnalyzer:
             "cryptography": self.analyze_cryptography(),
             "session_management": self.analyze_session_management(),
             "security_headers": self.analyze_security_headers(),
+            "logging_monitoring": self.analyze_logging(),
             "authorization": self.analyze_authorization(),
             "findings": [asdict(f) for f in self.enumerate_vulnerabilities()],
         }
@@ -445,11 +518,27 @@ _mitigated_evidence = {
         "SECRET_KEY generated randomly via secrets.token_hex(32) unless "
         "explicitly overridden."
     ),
+    "A05-002": "Generic error page with an error id; details logged server-side only.",
+    "A06-001": (
+        "No component version details are disclosed; dependencies are "
+        "inventoried and the deprecated MD5 primitive is retired."
+    ),
     "A07-001": (
         "Progressive lockout: 5 failed attempts trigger a 15-minute lockout; "
         "audit log entries generated."
     ),
-    "A10-001": "Generic error page with an error id; details logged server-side only.",
+    "A08-001": (
+        "Exports are stamped with keyed HMAC-SHA256; tampering without the "
+        "server secret is detectable."
+    ),
+    "A09-001": (
+        "Every security-relevant event (login failures, denials, rejected "
+        "imports) is written to a structured audit log."
+    ),
+    "A10-001": (
+        "Importer enforces an https-only scheme and a destination-host "
+        "allowlist; everything else fails closed."
+    ),
 }
 
 _mitigated_component = {
@@ -458,8 +547,12 @@ _mitigated_component = {
     "A03-001": "banking/secure.py:search_transactions",
     "A04-001": "banking/secure.py:transfer; banking/secure.py:parse_amount_cents",
     "A05-001": "webapp/app.py; core/config.py",
+    "A05-002": "webapp/app.py:handle_unexpected",
+    "A06-001": "webapp/routes.py:about; banking/integrity.py:HmacIntegrityStamper",
     "A07-001": "banking/secure.py:authenticate",
-    "A10-001": "webapp/app.py:handle_unexpected",
+    "A08-001": "banking/integrity.py:HmacIntegrityStamper",
+    "A09-001": "webapp/routes.py:import_statement; banking/secure.py",
+    "A10-001": "banking/importer.py:SecureStatementImporter",
 }
 
 

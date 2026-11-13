@@ -59,6 +59,10 @@ model risk       securebank-threat-model --mode <mode>
 * The secure build is a *reference* hardening, not a production system: no
   TLS termination, no MFA, no rate limiting beyond lockout, no log
   aggregation.
+* A09 (logging/monitoring) is verified **white-box**: black-box probes
+  cannot see the server's logs, so the difference is pinned by
+  `tests/test_logging.py` and reported by the research analyzer instead of
+  the pentest tool (it appears in the report's "not covered" section).
 * The threat model is qualitative; numbers support reasoning, they do not
   replace judgement.
 * OWASP category names/numbers change between editions — verify against

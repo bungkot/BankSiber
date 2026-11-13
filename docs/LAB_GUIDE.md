@@ -98,3 +98,44 @@ securebank-threat-model --mode vulnerable
 Compare risk scores between modes. For every confirmed finding, write down:
 the affected component, the minimal fix, and how the *test suite* proves the
 fix. That mapping is the deliverable of this lab — see `docs/FINDINGS.md`.
+
+## Exercise 11 — Outdated components (A06)
+
+Visit `/about` without logging in: vulnerable mode hands over exact Flask and
+Werkzeug versions plus a pinned past-EOL dependency — a free shopping list
+for matching public exploits. Secure mode answers without any component
+detail. Note how the `Server` banner alone (seen in Exercise 6) already
+leaks an exact version.
+
+## Exercise 12 — Data integrity failure (A08)
+
+Log in and open `/accounts/ledger/export`. Vulnerable mode stamps the CSV
+with **unkeyed MD5**: edit the downloaded file (change an amount), recompute
+`md5(file)` with any tool, and the stamp matches — tampering is undetectable.
+Secure mode uses keyed **HMAC-SHA256**: the probe (PT-10) proves it cannot
+forge the stamp without the server secret.
+
+## Exercise 13 — No logging, no monitoring (A09)
+
+Run the attacks from Exercises 1–5 again while watching the server console.
+Vulnerable mode records *nothing*: failed logins, IDOR access and rejected
+requests all leave no trace — an attacker can be as noisy as they like.
+Secure mode writes structured `securebank.audit` events (`login_failed`,
+`access_denied`, `import_rejected`); `tests/test_logging.py` pins this
+white-box difference.
+
+## Exercise 14 — SSRF (A10)
+
+Log in as `jsmith` and use the Import page (`/import/statement`). Feed the
+vulnerable build:
+
+```
+file:///C:/Windows/win.ini          (Windows)
+file:///etc/hostname                (POSIX)
+http://127.0.0.1:5000/login         (its own internal page)
+```
+
+The server fetches and displays it — that is server-side request forgery,
+including arbitrary local file read. Secure mode enforces https + a
+destination-host allowlist and rejects everything else (probe PT-11 proves
+it with the lab's own login page as the fetch target).

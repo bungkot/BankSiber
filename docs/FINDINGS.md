@@ -1,8 +1,9 @@
 # Findings Catalogue
 
-Canonical list of documented weaknesses and their controls. Each row is
-verified in both directions by the test suite; regenerate the machine-readable
-version with `securebank-research --mode <mode> --output reports/posture.json`.
+Canonical list of documented weaknesses and their controls, mapped to the
+**OWASP Top 10 (2021)** — all ten categories are covered (verified by
+`tests/test_owasp_coverage.py`). Regenerate the machine-readable version with
+`securebank-research --mode <mode> --output reports/posture.json`.
 
 | ID | Title | Category | Severity | Vulnerable component | Control (secure component) | Proof |
 |---|---|---|---|---|---|---|
@@ -11,11 +12,14 @@ version with `securebank-research --mode <mode> --output reports/posture.json`.
 | A03-001 | SQL injection (login + search) | Injection | Critical | f-string SQL (`banking/vulnerable.py`) | bound parameters + LIKE escaping (`banking/secure.py`) | `tests/test_injection.py`, probe PT-01/PT-02 |
 | A04-001 | Negative/unlimited transfers | Insecure Design | High | `banking/vulnerable.py:transfer` | `parse_amount_cents`, cap, atomic SQL with balance guard | `tests/test_business_logic.py` |
 | A05-001 | Weak session secret | Security Misconfiguration | High | `webapp/app.py:_WEAK_SECRET` | `secrets.token_hex(32)` | `tests/test_xss_and_headers.py` |
-| A06-001 | Missing security headers | Security Misconfiguration | Medium | no CSP/XFO/nosniff | `webapp/security.py:SECURITY_HEADERS` | probe PT-06 |
+| A05-002 | Verbose error disclosure | Security Misconfiguration | Medium | `handle_unexpected` returns traceback | generic page + error id; details logged | `tests/test_xss_and_headers.py`, probe PT-08 |
+| A05-003 | Missing security headers / cookie flags | Security Misconfiguration | Low–Medium | no CSP/XFO/nosniff; no cookie flags | `webapp/security.py:SECURITY_HEADERS`; `SESSION_COOKIE_*` | probes PT-06/PT-07 |
+| A06-001 | Component version disclosure + outdated dependency | Vulnerable & Outdated Components | Medium | `webapp/routes.py:about`; MD5 primitive (`banking/integrity.py`) | minimal `/about`, SBOM stance, `HmacIntegrityStamper` | `tests/test_component_exposure.py`, probe PT-09 |
 | A07-001 | Default credentials, no lockout | Authentication Failures | High | `DEMO_CREDENTIALS` + no counter | hashing, lockout (5→15 min), audit log | `tests/test_authentication.py`, probe PT-04 |
-| A08-001 | Reflected XSS | Injection | Medium | `webapp/templates/search.html` (`\|safe`) | autoescaping + strict CSP | `tests/test_xss_and_headers.py`, probe PT-05 |
-| A09-001 | Weak session cookie flags | Security Misconfiguration | Low | no HttpOnly/SameSite | `SESSION_COOKIE_*` set in `webapp/app.py` | probe PT-07 |
-| A10-001 | Verbose error disclosure | Mishandling of Exceptional Conditions | Medium | `handle_unexpected` returns traceback | generic page + error id; details logged | `tests/test_xss_and_headers.py`, probe PT-08 |
+| A08-001 | Forgeable ledger export stamp | Software & Data Integrity Failures | High | unkeyed MD5 (`banking/integrity.py:LegacyIntegrityStamper`) | keyed HMAC-SHA256 (`HmacIntegrityStamper`) | `tests/test_integrity.py`, probe PT-10 |
+| A09-001 | No security event logging or monitoring | Security Logging & Monitoring Failures | High | security events emitted nowhere | structured `securebank.audit` events (auth, denials, rejects) | `tests/test_logging.py` (white-box) |
+| A10-001 | SSRF via statement import | Server-Side Request Forgery | High | `banking/importer.py:VulnerableStatementImporter` (any scheme/host) | https + host allowlist, fails closed (`SecureStatementImporter`) | `tests/test_ssrf.py`, probe PT-11 |
+| A03-002 | Reflected XSS | Injection | Medium | `webapp/templates/search.html` (`\|safe`) | autoescaping + strict CSP | `tests/test_xss_and_headers.py`, probe PT-05 |
 
 ## Status semantics
 

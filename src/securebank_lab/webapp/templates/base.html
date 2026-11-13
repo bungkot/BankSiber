@@ -15,6 +15,7 @@
         <a href="{{ url_for('bank.dashboard') }}">Accounts</a> |
         <a href="{{ url_for('bank.search') }}">Search</a> |
         <a href="{{ url_for('bank.transfer') }}">Transfer</a> |
+        <a href="{{ url_for('bank.import_statement') }}">Import</a> |
         {{ session.user.username }}
         <form method="post" action="{{ url_for('bank.logout') }}">
           {{ csrf_field() }}<button type="submit">Log out</button>

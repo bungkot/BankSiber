@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+from importlib.metadata import version as _pkg_version
+
 from flask import (
     Blueprint,
+    Response,
     abort,
     current_app,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -15,6 +20,8 @@ from flask import (
 from flask.typing import ResponseReturnValue
 
 from securebank_lab.banking import AccountService, build_service
+from securebank_lab.banking.importer import build_importer
+from securebank_lab.banking.integrity import build_stamper, ledger_csv_for
 from securebank_lab.core.config import Mode, Settings
 from securebank_lab.core.exceptions import (
     AccountLockedError,
@@ -26,6 +33,12 @@ from securebank_lab.storage.database import get_db
 from securebank_lab.webapp.security import current_user, login_required
 
 bp = Blueprint("bank", __name__)
+
+audit_log = logging.getLogger("securebank.audit")
+
+# Simulated third-party component used by the A06 exercise. It does not
+# exist; it models "a pinned dependency that is past end of life".
+_OUTDATED_COMPONENT = "payments-core 1.2.1-eol (unsupported since 2024)"
 
 _GENERIC_LOGIN_ERROR = "Invalid credentials or account temporarily locked."
 
@@ -137,3 +150,76 @@ def transfer() -> ResponseReturnValue:
     except NotFoundError:
         abort(404)
     return redirect(url_for("bank.dashboard"))
+
+
+@bp.get("/about")
+def about() -> ResponseReturnValue:
+    """Component information endpoint.
+
+    VULN A06 in vulnerable mode: exact framework versions and a past-EOL
+    dependency are disclosed to anonymous visitors (component
+    reconnaissance for an attacker). Secure mode answers without any
+    component detail.
+    """
+    if _settings().mode is Mode.SECURE:
+        return jsonify({"status": "ok"})  # no component details
+    return jsonify(
+        {
+            "application": "SecureBank Lab",
+            "mode": "vulnerable",
+            "components": {
+                "flask": _pkg_version("flask"),
+                "werkzeug": _pkg_version("werkzeug"),
+                "payments-core": _OUTDATED_COMPONENT,
+            },
+        }
+    )
+
+
+@bp.get("/accounts/ledger/export")
+@login_required
+def ledger_export() -> ResponseReturnValue:
+    """Export the requester's ledger with an integrity stamp (OWASP A08).
+
+    VULN A08 in vulnerable mode: the stamp is unkeyed MD5 - anyone can
+    recompute it after editing the file, so it proves nothing. Secure mode
+    uses keyed HMAC-SHA256.
+    """
+    user = _user()
+    data = ledger_csv_for(get_db(), user)
+    stamper = build_stamper(_settings().mode, str(current_app.secret_key))
+    if _settings().mode is Mode.SECURE:
+        audit_log.info("ledger_exported user_id=%d bytes=%d", user.id, len(data))
+    response = Response(data, mimetype="text/csv")
+    response.headers["X-Integrity"] = f"{stamper.label()} {stamper.stamp(data)}"
+    return response
+
+
+@bp.get("/import/statement")
+@login_required
+def import_statement() -> ResponseReturnValue:
+    """Fetch an external statement by URL (OWASP A10 SSRF in vulnerable mode).
+
+    VULN A10 in vulnerable mode: the URL is fetched with no scheme or host
+    validation, so ``file://`` and internal ``http://`` resources are
+    readable. Secure mode fails closed on an https + host allowlist.
+    """
+    user = _user()
+    url = request.args.get("url", "")
+    preview: str | None = None
+    error: str | None = None
+    if url:
+        try:
+            preview = build_importer(_settings().mode).fetch(url)
+        except ValidationError as exc:
+            error = str(exc)
+            if _settings().mode is Mode.SECURE:
+                # A09 (secure): the denied attempt is recorded for monitoring.
+                audit_log.warning(
+                    "import_rejected user_id=%d url=%r", user.id, url[:128]
+                )
+    status = 400 if error else 200
+    return (
+        render_template("import.html", url=url, preview=preview, error=error),
+        status,
+    )

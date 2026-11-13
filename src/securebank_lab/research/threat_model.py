@@ -175,6 +175,41 @@ class ThreatModelBuilder:
                     attack_surface_focus=("error_handling", "api_endpoints"),
                 )
             )
+        if any(
+            "Version Disclosure" in f.title or "Outdated" in f.title for f in findings
+        ):
+            actors.append(
+                ThreatActor(
+                    id="TA-006",
+                    name="Component Reconnaissance",
+                    skill_level="script_kiddie",
+                    motivation="information_gathering",
+                    capabilities=("version_fingerprinting", "dependency_analysis"),
+                    attack_surface_focus=("component_inventory", "info_endpoints"),
+                )
+            )
+        if any("Integrity" in f.title for f in findings):
+            actors.append(
+                ThreatActor(
+                    id="TA-007",
+                    name="Data Meddler",
+                    skill_level="competent",
+                    motivation="financial",
+                    capabilities=("export_tampering", "stamp_forgery"),
+                    attack_surface_focus=("exports", "data_integrity"),
+                )
+            )
+        if any("Request Forgery" in f.title for f in findings):
+            actors.append(
+                ThreatActor(
+                    id="TA-008",
+                    name="Internal Service Prober",
+                    skill_level="competent",
+                    motivation="information_gathering",
+                    capabilities=("ssrf", "file_scheme_abuse", "internal_scanning"),
+                    attack_surface_focus=("url_fetchers", "import_endpoints"),
+                )
+            )
         return tuple(actors)
 
     @staticmethod
@@ -303,6 +338,14 @@ def _success_condition(f: VulnerabilityFinding) -> str:
         return "forge or tamper with a session cookie"
     if "lockout" in base or "credentials" in base:
         return "guess published default credentials without lockout"
+    if "versions" in base or "outdated" in base:
+        return "fingerprint components and match them to public exploits"
+    if "md5" in base or "stamp" in base or "integrity" in base:
+        return "edit an exported ledger and recompute the unkeyed stamp"
+    if "importer" in base or "fetch" in base or "url" in base:
+        return "make the server fetch file:// or internal http:// resources"
+    if "log" in base or "monitoring" in base:
+        return "run noisy attacks without any security event being recorded"
     if "error" in base or "trace" in base:
         return "cause an exception and observe the server response"
     return "meet the conditions described in the evidence"
@@ -321,6 +364,14 @@ def _impact(f: VulnerabilityFinding) -> str:
         return "session forgery leading to full account impersonation"
     if "transfer" in base or "negative" in base:
         return "financial loss via reversed or unlimited transfers"
+    if "versions" in base or "outdated" in base:
+        return "targeted exploitation of known component weaknesses"
+    if "md5" in base or "tamper" in base:
+        return "undetectable falsification of financial exports"
+    if "importer" in base or "url" in base:
+        return "disclosure of internal resources reachable from the server"
+    if "log" in base or "monitoring" in base:
+        return "attacks proceed undetected with no forensic trail"
     if "error" in base:
         return "information leakage enabling further attacks"
     return "significant security impact"
@@ -337,6 +388,14 @@ def _secondary_success_condition(f: VulnerabilityFinding) -> str:
         return "unvalidated transfers result in financial fraud"
     if "object" in base:
         return "access to foreign data enables privilege escalation"
+    if "md5" in base or "integrity" in base:
+        return "tampered exports propagate into downstream systems"
+    if "importer" in base or "url" in base:
+        return "SSRF pivots to internal services and cloud metadata"
+    if "log" in base or "monitoring" in base:
+        return "absence of monitoring prolongs intrusions and destroys forensics"
+    if "versions" in base or "outdated" in base:
+        return "disclosed versions shorten the path to public exploit chains"
     return "secondary effects compound the primary vulnerability"
 
 
@@ -351,6 +410,14 @@ def _secondary_impact(f: VulnerabilityFinding) -> str:
         return "unauthorised fund transfers and financial loss"
     if "object" in base:
         return "covert exfiltration from arbitrary user accounts"
+    if "md5" in base or "integrity" in base:
+        return "corrupted records accepted as genuine by dependent processes"
+    if "importer" in base or "url" in base:
+        return "internal network foothold for further attacks"
+    if "log" in base or "monitoring" in base:
+        return "incident detection and response become impossible"
+    if "versions" in base or "outdated" in base:
+        return "compromise via known, patchable component flaws"
     return "extended security impact beyond the primary finding"
 
 
