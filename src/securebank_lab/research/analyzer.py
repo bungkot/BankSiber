@@ -24,8 +24,6 @@ from securebank_lab.storage.database import connect, init_db
 
 logger = logging.getLogger("securebank.research")
 
-_SEVERITY_SCORE = {"Critical": 9.0, "High": 7.0, "Medium": 5.0, "Low": 3.0}
-
 
 @dataclass(frozen=True, slots=True)
 class VulnerabilityFinding:

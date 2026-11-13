@@ -3,6 +3,23 @@
 All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed — consistency audit (P1)
+- Removed the duplicate `QuietBannerHandler` from `core/version.py`;
+  `webapp/server.py` is the only definition (tests already import it there).
+- Removed the unused `_SEVERITY_SCORE` constant from
+  `research/analyzer.py` (dead duplicate of `threat_model.py`'s table).
+- `pentest/checks.py` `NOT_COVERED` now points at the post-v2.2.1 test
+  locations (`tests/lab/test_*.py`); new meta-test
+  `tests/tool/test_pentest.py::test_not_covered_paths_point_at_existing_tests`
+  fails the build if such a path goes stale again.
+
+### Changed — packaging
+- Version is now single-sourced from `src/securebank_lab/core/version.py`
+  via `[tool.setuptools.dynamic]`; a release bump no longer touches
+  `pyproject.toml` separately.
+
 ## [2.2.2] - 2026-11-13
 
 ### Fixed — QA audit

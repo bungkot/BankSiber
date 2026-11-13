@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "securebank-lab"
-version = "2.2.2"
+dynamic = ["version"]
 description = "Cybersecurity research lab: vulnerable & secure bank implementations for attack surface analysis, threat modeling, and security control validation"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -40,6 +40,10 @@ securebank-threat-model = "securebank_lab.research.cli:threat_model_main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+# Single source of truth: src/securebank_lab/core/version.py (literal assignment).
+version = { attr = "securebank_lab.core.version.__version__" }
 
 [tool.setuptools.package-data]
 securebank_lab = ["webapp/templates/*.html"]
