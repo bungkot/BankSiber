@@ -4,7 +4,8 @@
   whatever URL the client supplies, with any scheme (``file://`` included),
   so the server can be tricked into reading internal resources.
 * :class:`SecureStatementImporter` - the fix: scheme + host allowlist,
-  response-size cap and short timeout; everything else fails closed.
+  no redirect following, response-size cap and short timeout; everything
+  else fails closed.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from typing import Protocol
 
 from securebank_lab.core.config import Mode
 from securebank_lab.core.exceptions import ValidationError
+from securebank_lab.core.netutil import HTTPRedirectGuard
 
 _MAX_RESPONSE_BYTES = 64_000
 _TIMEOUT_SECONDS = 5.0
@@ -50,7 +52,15 @@ class VulnerableStatementImporter:
 
 
 class SecureStatementImporter:
-    """Allowlisted fetch: https only, trusted provider hosts only."""
+    """Allowlisted fetch: https only, trusted provider hosts only.
+
+    Redirects are never followed: a 3xx from the allowlisted host is an
+    error, not a new destination, so a trusted origin cannot be used as a
+    trampoline to an internal resource (fail closed).
+    """
+
+    def __init__(self) -> None:
+        self._opener = urllib.request.build_opener(HTTPRedirectGuard())
 
     def fetch(self, url: str) -> str:
         """Fetch ``url`` only if scheme and host are on the allowlist."""
@@ -60,9 +70,8 @@ class SecureStatementImporter:
         if parsed.hostname not in _ALLOWED_HOSTS:
             raise ValidationError("Statement source host is not allowlisted.")
         try:
-            with urllib.request.urlopen(  # noqa: S310 - allowlisted https only
-                url, timeout=_TIMEOUT_SECONDS
-            ) as response:
+            request = urllib.request.Request(url)  # noqa: S310 - allowlisted https only
+            with self._opener.open(request, timeout=_TIMEOUT_SECONDS) as response:
                 raw: bytes = response.read(_MAX_RESPONSE_BYTES)
                 return raw.decode("utf-8", errors="replace")
         except (urllib.error.URLError, OSError, ValueError) as exc:

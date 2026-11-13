@@ -64,7 +64,10 @@ vectors weigh 0.3 and risk concentrates in *residual* concerns only.
   analyzer); a production deployment would ship logs to centralised,
   integrity-protected storage.
 * The `statements.lab.internal` allowlist is fictional — it demonstrates the
-  *control shape* (deny by default), not a real integration.
+  *control shape* (deny by default), not a real integration. The importer
+  also refuses to follow redirects: a 3xx from the allowlisted host fails
+  closed (`core/netutil.py:HTTPRedirectGuard`), so a trusted origin cannot
+  be used as a trampoline.
 
 ## Assumptions and trust boundaries
 

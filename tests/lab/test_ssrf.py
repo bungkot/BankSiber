@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import io
+import urllib.error
 import urllib.request
+from email.message import Message
 from pathlib import Path
 
 import pytest
 from flask.testing import FlaskClient
 
 from securebank_lab.banking.importer import SecureStatementImporter
+from securebank_lab.core.exceptions import ValidationError
+from securebank_lab.core.netutil import HTTPRedirectGuard
 from tests.conftest import login
 
 
@@ -55,13 +60,41 @@ def test_secure_importer_allows_allowlisted_https(
         def __exit__(self, *args: object) -> None:
             return None
 
-    def fake_urlopen(url: str, timeout: float) -> FakeResponse:
-        assert url.startswith("https://statements.lab.internal")
-        return FakeResponse()
+    class FakeOpener:
+        def open(self, req: urllib.request.Request, timeout: float) -> FakeResponse:
+            assert req.full_url.startswith("https://statements.lab.internal")
+            return FakeResponse()
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
     importer = SecureStatementImporter()
+    monkeypatch.setattr(importer, "_opener", FakeOpener())
     assert "csv,statement" in importer.fetch("https://statements.lab.internal/q.csv")
+
+
+def test_secure_importer_opener_refuses_redirects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 3xx from the allowlisted host must fail closed, never be followed."""
+    importer = SecureStatementImporter()
+
+    class RedirectingOpener:
+        def open(self, req: urllib.request.Request, timeout: float) -> str:
+            raise urllib.error.HTTPError(
+                req.full_url, 302, "Found", Message(), io.BytesIO(b"")
+            )
+
+    monkeypatch.setattr(importer, "_opener", RedirectingOpener())
+    with pytest.raises(ValidationError, match="Could not fetch statement"):
+        importer.fetch("https://statements.lab.internal/q.csv")
+
+
+def test_redirect_guard_never_returns_a_followup_request() -> None:
+    """The guard itself: redirect_request must refuse every redirect."""
+    handler = HTTPRedirectGuard()
+    request = urllib.request.Request("https://statements.lab.internal/q.csv")
+    assert (
+        handler.redirect_request(request, io.BytesIO(b""), 302, "Found", Message(), "")
+        is None
+    )
 
 
 def test_vulnerable_importer_reports_fetch_errors(vuln: FlaskClient) -> None:

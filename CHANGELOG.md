@@ -5,6 +5,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Hardened — P2
+- `banking/importer.py` `SecureStatementImporter` no longer follows HTTP
+  redirects: a 3xx from the allowlisted host fails closed (SSRF
+  trampoline-by-redirect closed). The redirect handler itself moved to
+  `core/netutil.py:HTTPRedirectGuard`, now shared with the pentest client
+  (single source, replaces the duplicated `_NoRedirect`).
+- `core/netutil.py` `is_loopback` resolves names and requires *every*
+  resolved address to be loopback, so a hijacked "localhost" mapping (DNS
+  rebinding) is refused; unresolvable names fail closed. Covered by a
+  deterministic `getaddrinfo`-stubbed test.
+- `core/config.py` `Settings` documents that secure mode's per-process
+  random `SECRET_KEY` invalidates all sessions on restart.
+- New tests: redirect refusal (unit + handler), strict name resolution
+  (`tests/tool/test_cli.py`).
+
 ### Fixed — consistency audit (P1)
 - Removed the duplicate `QuietBannerHandler` from `core/version.py`;
   `webapp/server.py` is the only definition (tests already import it there).

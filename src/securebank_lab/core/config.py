@@ -24,6 +24,9 @@ class Settings:
             plaintext (vulnerable) and hashed (secure) data never mix.
         secret_key: Session signing key. Secure mode generates a random key
             when omitted; vulnerable mode deliberately uses a weak constant.
+            The random key is generated *per process*, so every session is
+            invalidated whenever the server restarts — acceptable for a lab.
+            Pass ``secret_key`` explicitly to keep sessions across restarts.
         cookie_secure: Set True when served over HTTPS so the session cookie
             gets the ``Secure`` flag and HSTS is sent.
     """

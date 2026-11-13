@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import socket
+
 import pytest
 
 from securebank_lab.cli.main import main
@@ -22,6 +24,35 @@ from securebank_lab.webapp.server import QuietBannerHandler
 )
 def test_is_loopback(host: str, expected: bool) -> None:
     assert is_loopback(host) is expected
+
+
+def test_is_loopback_resolves_names_strictly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A name counts as loopback only if *every* resolved address is local.
+
+    Deterministic: ``socket.getaddrinfo`` is stubbed, so no DNS is consulted.
+    """
+    resolved: dict[str, list[str]] = {}
+
+    def resolve(
+        name: str, *args: object
+    ) -> list[tuple[int, int, int, str, tuple[str, int]]]:
+        return [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, 0))
+            for address in resolved.get(name, [])
+        ]
+
+    monkeypatch.setattr(socket, "getaddrinfo", resolve)
+
+    resolved["rebind.localhost"] = ["203.0.113.7"]  # name hijacked to a public IP
+    assert is_loopback("rebind.localhost") is False
+    resolved["dual.localhost"] = ["127.0.0.1", "::1"]  # all loopback
+    assert is_loopback("dual.localhost") is True
+    resolved["mixed.localhost"] = ["127.0.0.1", "203.0.113.9"]  # one public
+    assert is_loopback("mixed.localhost") is False
+    resolved["dead.localhost"] = []  # unresolvable fails closed
+    assert is_loopback("dead.localhost") is False
 
 
 def test_vulnerable_mode_refuses_public_bind() -> None:
