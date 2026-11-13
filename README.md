@@ -1,4 +1,4 @@
-# SecureBank Lab — Cybersecurity Research Environment
+# Cybersecurity Research Environment
 
 [![CI](https://github.com/bungkot/BankSiber/actions/workflows/ci.yml/badge.svg)](https://github.com/bungkot/BankSiber/actions/workflows/ci.yml)
 [![Release](https://github.com/bungkot/BankSiber/actions/workflows/release.yml/badge.svg)](https://github.com/bungkot/BankSiber/actions/workflows/release.yml)
@@ -12,6 +12,12 @@
 codebase: a deliberately vulnerable build and its hardened counterpart — plus
 the research tooling to analyse, attack and verify both.
 
+> **Naming.** The project is called **BankSiber**. In the code the Python
+> package keeps its original name `securebank_lab`, and the CLI entry points
+> remain `securebank-pentest`, `securebank-research` and
+> `securebank-threat-model` — these are not renamed to avoid breaking imports,
+> commands and tests.
+
 The project is **two components**, and everything in this repository belongs
 to exactly one of them:
 
@@ -19,7 +25,7 @@ to exactly one of them:
         COMPONENT 1 — THE BANK (target)          COMPONENT 2 — THE TOOL (assessor)
    ┌────────────────────────────────┐        ┌────────────────────────────────────┐
    │  src/securebank_lab/           │        │  src/securebank_lab/               │
-   │    webapp/    Flask bank       │  HTTP   │    pentest/    11 black-box probes │
+   │    webapp/    Flask bank       │  HTTP  │    pentest/    11 black-box probes │
    │    banking/   vuln + secure    │◄───────│    research/   analyzer + threat   │
    │    storage/   SQLite           │        │    cli/        serve | pentest | … │
    │    core/      shared config    │        │  tests/tool/   tests OF the tool   │
@@ -153,7 +159,8 @@ The tool side attacks and analyses the bank, and is itself a tested product:
 * The HTTP client only accepts `http(s)` URLs whose host is loopback
   (`127.0.0.1`, `::1`, `localhost`); the check lives in the client
   constructor, so no probe can reach another machine.
-* The target must identify itself as SecureBank Lab.
+* The target must identify itself as SecureBank Lab (the lab's own banner
+  string in the code — intentionally unchanged).
 * Probes never change data, never brute force, and prove injection with a
   harmless computed marker instead of reading real records.
 * Exit codes: `2` = target refused, `1` = flaw found (with `--fail-on-vulnerable`).
@@ -212,6 +219,8 @@ headless research tooling — run in CI on every push and pull request
 * `docs/FINDINGS.md` — full findings catalogue and remediation mapping.
 
 ## Repository
+
+BankSiber lives at <https://github.com/bungkot/BankSiber>.
 
 * Clone: `git clone https://github.com/bungkot/BankSiber.git`
 * Issues: <https://github.com/bungkot/BankSiber/issues>
