@@ -1,6 +1,6 @@
 """Version string for securebank_lab."""
 
-__version__ = "2.2.1"
+__version__ = "2.2.2"
 
 
 class QuietBannerHandler:

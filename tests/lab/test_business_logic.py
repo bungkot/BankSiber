@@ -1,4 +1,4 @@
-"""A06 Insecure Design and A10 Mishandling of Exceptional Conditions."""
+"""A04 Insecure Design and A05-002 verbose error disclosure."""
 
 from __future__ import annotations
 

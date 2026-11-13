@@ -62,7 +62,7 @@ class VulnerableAccountService:
     def transfer(
         self, requester: User, from_account: int, to_account: int, amount: str
     ) -> None:
-        """VULN A06 Insecure Design + A10 Mishandling of Exceptional Conditions.
+        """VULN A04 Insecure Design + A05 Security Misconfiguration.
 
         * ``float`` arithmetic for money (rounding errors).
         * Negative amounts are accepted, which reverses the direction.

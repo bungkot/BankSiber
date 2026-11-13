@@ -166,6 +166,41 @@ def test_every_public_source_callable_is_tested_or_excluded() -> None:
     )
 
 
+def test_bank_never_imports_tool_packages() -> None:
+    """The README claims dependency-direction is enforced; this proves it."""
+    tool_packages = {"pentest", "research", "cli"}
+    for module_name in _src_modules():
+        package = module_name.split(".")[1]
+        if package in tool_packages:
+            continue  # the tool side may import anything
+        module = importlib.import_module(module_name)
+        assert module.__file__ is not None  # narrows type for mypy
+        source = Path(module.__file__).read_text(encoding="utf-8")
+        tool_imports: set[str] = set()
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                parts = node.module.split(".")
+                if (
+                    parts[0] == "securebank_lab"
+                    and parts[1:2]
+                    and parts[1] in tool_packages
+                ):
+                    tool_imports.add(node.module)
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    parts = alias.name.split(".")
+                    if (
+                        parts[0] == "securebank_lab"
+                        and parts[1:2]
+                        and parts[1] in tool_packages
+                    ):
+                        tool_imports.add(alias.name)
+        assert not tool_imports, (
+            f"Bank component module {module_name} imports tool packages "
+            f"{sorted(tool_imports)} — this breaks the two-component split."
+        )
+
+
 def test_exclusions_point_at_real_source_functions() -> None:
     """An exclusion may never outlive the function it excuses."""
     live: dict[str, set[str]] = {}

@@ -3,6 +3,34 @@
 All notable changes to this project are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.2.2] - 2026-11-13
+
+### Fixed — QA audit
+- Restored the four `docs/` files and `README.md` that were accidentally
+  overwritten (a batch `Set-Content` copied the concatenated content of all
+  five documents into each file, with mojibake from ANSI decoding). Content
+  recovered byte-exact from the concatenated artifact; `git diff` against the
+  pre-damage commit now shows only the intended edits.
+- OWASP 2017-era label retired: probe PT-08 now reports category
+  **Security Misconfiguration** (matching finding A05-002); stale docstrings
+  in `banking/vulnerable.py` and `tests/lab/test_business_logic.py`
+  relabelled to the 2021 category numbers (A04 / A05).
+
+### Changed — packaging hygiene
+- Project renamed `securebank-research` → `securebank-lab` (matches the
+  package and the primary entry point); removed the fake `Homepage` URL.
+- Removed three pytest markers that were declared but never used.
+- Removed the stale `securebank_research.egg-info` build artifact; editable
+  install regenerated under the new name.
+- `pentest/__main__.py` now guards its `SystemExit` under
+  `if __name__ == "__main__"` like every other module.
+
+### Added — enforcement
+- `tests/test_source_contract.py` now **proves** the README claim
+  "dependency-direction enforced": no module of the bank component
+  (`core/storage/banking/webapp`) may import a tool package
+  (`pentest/research/cli`).
+
 ## [2.2.1] - 2026-11-13
 
 ### Changed — two-component separation and test↔source contract
