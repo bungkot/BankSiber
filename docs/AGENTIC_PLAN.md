@@ -1,6 +1,13 @@
 # Rencana Integrasi: LLM Agentic Assessor (OWASP Top 10 + WSTG)
 
 > Status: **rencana tersimpan, belum diimplementasi.**
+> **Catatan posisi (lihat juga):** dokumen ini adalah jalur **reasoner LLM**
+> dan menjadi **tahap v4** dalam `AGENTIC_SELF_DEV_ROADMAP.md`. Fondasi yang
+> dibangun lebih dulu adalah agent core deterministik — analisa dan rencana
+> v1–v3 ada di `AGENTIC_HARNESS_ANALYSIS.md` dan
+> `AGENTIC_SELF_DEV_ROADMAP.md`. Nama package direkonsiliasi: core
+> deterministik hidup di `src/securebank_lab/agent/`; usulan package
+> `agentic/` pada dokumen ini menyatu ke sana pada v4.
 > Dokumen ini menyimpan hasil analisis dan diskusi desain untuk pengembangan
 > tahap berikutnya dari BankSiber: menggandeng LLM lokal sebagai *agentic
 > tester* yang menguji lab mengikuti metodologi OWASP.
@@ -70,6 +77,8 @@ securebank-agent http://127.0.0.1:5000 --mode vulnerable   # agentic penuh
 securebank-pentest ... --with-agent                         # hybrid: probe + agent
 # opsi: --llm-base-url, --llm-model, --max-steps, --max-requests,
 #       --categories INPV,ATHN
+# default --llm-model = richardyoung/mythos-qwen-1.5b-abliterated (dev);
+# ganti manual ke abliterant/qwen3.5-rana:9b untuk quality gate.
 ```
 
 ## 5. Tahapan implementasi
@@ -105,6 +114,67 @@ ollama pull eriktonon/qwen3-coder-uncensored            # tercepat
 
 **Saran**: default CLI `--llm-model` = `abliterant/qwen3.5-rana:9b` (jalan di
 banyak mesin), user dengan GPU 16–24 GB ganti ke `OrcaSAQ-2-Cyber-27B-Uncensored`.
+
+### 6a. Model development ringan (1–2 GB) — untuk iterasi Fase 1–3
+
+| Model | Ukuran | Catatan |
+|---|---|---|
+| `richardyoung/mythos-qwen-1.5b-abliterated` ⭐ | 986 MB | Fine-tune Qwen2.5-Coder khusus security (CVE, CTF, vuln research), decensored dengan Heretic (refusal 2/100, KL 0.023), tools, context 32K |
+| `dagbs/qwen2.5-coder-1.5b-instruct-abliterated` | 1.1 GB (q4_k_m) | Qwen2.5-Coder 1.5B abliterated (bartowski build), banyak tag kuantisasi, tools, context 32K |
+| `tinydolphin` | ~0.8 GB | Fallback teringan (1.1B); model lama, patuh format lemah |
+| `dolphin-phi` | ~1.6 GB | Fallback 2.7B untuk coding; model lama |
+
+```bash
+ollama pull richardyoung/mythos-qwen-1.5b-abliterated   # dev default
+```
+
+**Peran model kecil**: menguji ketahanan parser JSON + retry loop (Fase 2).
+Model 1.5B sering menghasilkan JSON rusak — justru stress-test yang baik; jika
+parser tahan terhadap model ini, model besar pasti lancar. Jangan menilai
+kualitas pentesting agent dari model ini.
+
+### 6b. Deep dive Mythos Engine 1.5B (riset asal-usul, Nov 2026)
+
+Garis keturunan (terverifikasi di HuggingFace):
+
+```
+Qwen/Qwen2.5-Coder-1.5B-Instruct          (Apache-2.0, context 32K)
+   └─ QLoRA 4-bit + Unsloth, 4 epoch, LR 1e-5, seq len 4096
+      expper/mythos-qwen-1.5b-final        (fine-tune security asli)
+         └─ Heretic v1.4.0 (abliteration otomatis, reproducible)
+            richardyoung/mythos-qwen-1.5b-final-heretic
+               → Ollama: richardyoung/mythos-qwen-1.5b-abliterated (Q4_K_M, 986 MB)
+```
+
+| Metrik | Nilai | Implikasi |
+|---|---|---|
+| KL divergence vs asli | 0.0234 | Kemampuan dasar hampir utuh; decensoring rapi |
+| Refusal | 93/100 → 2/100 | Generate payload tanpa penolakan |
+| Dataset | 1000+ contoh | Kecil — output bisa tidak stabil |
+| Training loss akhir | 2.02 | Agak tinggi; kualitas uneven |
+| Seq length training | **4096** | Kualitas menurun di luar ±4K token meski context 32K |
+
+Dataset: 40% PHP vuln, 25% MyBB exploit, 20% Python exploit dev, 10% blue
+team, 5% crypto — di-post-train untuk CoT + self-correction.
+
+**Implikasi desain yang dipicu temuan ini:**
+
+1. **Working window ≈ 4K token untuk mythos** (bukan 32K): katalog WSTG versi
+   mini per kategori, body HTTP dipangkas ±2–3 KB, history diringkas tiap
+   ±10 langkah. Model ≥9B boleh pakai jendela penuh.
+2. **Keunggulan domain lebih sempit dari klaim** — bias PHP/MyBB, bukan
+   web-pentesting generik (lab kita Flask/Python/SQLite). Yang transfer: SQLi,
+   exploit dev Python, pola pikir security. Memperkuat keputusan: mythos hanya
+   untuk development.
+3. **CoT trained ≠ JSON murni** — `llm.py` wajib: JSON mode Ollama
+   (`response_format: {"type": "json_object"}`), parser toleran
+   (brace-matching, bukan `json.loads()` buta), fallback regex.
+4. **Satu aksi per giliran** untuk mythos: schema 5 aksi, semua field wajib,
+   tanpa nesting; schema penuh disiapkan untuk model ≥9B.
+
+Resource (perkiraan): bobot 986 MB + KV cache ~120 MB @4K / ~0.9 GB @32K →
+total ±1.1–2 GB RAM, jalan di CPU. Kecepatan CPU ±15–40 tok/s → loop 40
+langkah ≈ beberapa menit per run; GPU jauh lebih cepat.
 
 ## 7. Catatan implementasi `llm.py`
 
