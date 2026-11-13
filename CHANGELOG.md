@@ -5,6 +5,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Hardened — P3
+- `banking/secure.py` `transfer` now emits `securebank.audit` events for
+  every denied or rejected attempt (`transfer_denied` when the source
+  account is not the requester's, `transfer_rejected` for insufficient
+  funds or an unknown destination) — account-ID probing is now visible in
+  the audit trail; proven by `tests/lab/test_logging.py`.
+- The residual destination-account-ID enumeration risk (a rejected
+  transfer reveals whether a destination id exists) is documented in the
+  pentest tool's `NOT_COVERED` list with the test that covers it
+  white-box.
+- `storage/database.py`: the schema placeholder hack
+  (`SCHEMA.replace(":allow_negative", ...)`) replaced by an explicit
+  `schema_for(mode)` template substitution; new test proves the secure
+  schema has the balance CHECK and the vulnerable schema does not. Also
+  fixes a stale category label (the missing balance floor is A04 Insecure
+  Design, not A06).
+
 ### Hardened — P2
 - `banking/importer.py` `SecureStatementImporter` no longer follows HTTP
   redirects: a 3xx from the allowlisted host fails closed (SSRF

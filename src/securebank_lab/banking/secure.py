@@ -156,13 +156,28 @@ class SecureAccountService:
                     (from_account, requester.id),
                 ).fetchone()
                 if owned is None:
+                    audit_log.warning(
+                        "transfer_denied user_id=%d account_id=%d",
+                        requester.id,
+                        from_account,
+                    )
                     raise NotFoundError("Account not found.")
+                audit_log.warning(
+                    "transfer_rejected user_id=%d account_id=%d (insufficient funds)",
+                    requester.id,
+                    from_account,
+                )
                 raise ValidationError("Insufficient funds.")
             credit = self._conn.execute(
                 "UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?",
                 (cents, to_account),
             )
             if credit.rowcount == 0:
+                audit_log.warning(
+                    "transfer_rejected user_id=%d account_id=%d (destination unknown)",
+                    requester.id,
+                    to_account,
+                )
                 raise ValidationError("Destination account not found.")
             self._conn.executemany(
                 "INSERT INTO transactions (account_id, description, amount_cents) "

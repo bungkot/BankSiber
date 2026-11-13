@@ -9,6 +9,7 @@ from flask.testing import FlaskClient
 from securebank_lab.banking.secure import MAX_TRANSFER_CENTS, parse_amount_cents
 from securebank_lab.core.config import Mode
 from securebank_lab.core.exceptions import ValidationError
+from securebank_lab.storage.database import schema_for
 from tests.conftest import balance, login, post
 
 
@@ -73,6 +74,12 @@ def test_vulnerable_bad_amount_leaks_stack_trace(vuln: FlaskClient) -> None:
     response = _transfer(vuln, 1001, 1002, "abc")
     assert response.status_code == 500
     assert "Traceback" in response.get_data(as_text=True)
+
+
+def test_secure_schema_has_balance_floor_vulnerable_does_not() -> None:
+    """A04: the secure schema enforces a non-negative balance; vulnerable has none."""
+    assert "CHECK (balance_cents >= 0)" in schema_for(Mode.SECURE)
+    assert "CHECK" not in schema_for(Mode.VULNERABLE)
 
 
 def test_secure_bad_amount_returns_friendly_error(secure: FlaskClient) -> None:

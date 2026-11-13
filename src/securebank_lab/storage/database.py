@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS accounts (
     id            INTEGER PRIMARY KEY,
     owner_id      INTEGER NOT NULL REFERENCES users(id),
-    balance_cents INTEGER NOT NULL CHECK (balance_cents >= 0 OR :allow_negative)
+    balance_cents INTEGER NOT NULL{balance_rule}
 );
 CREATE TABLE IF NOT EXISTS transactions (
     id           INTEGER PRIMARY KEY,
@@ -71,14 +71,20 @@ def connect(path: Path | str) -> sqlite3.Connection:
     return conn
 
 
+def schema_for(mode: Mode) -> str:
+    """Return the schema for ``mode``.
+
+    The vulnerable bank has no balance floor (A04 Insecure Design): the
+    CHECK constraint is simply absent, mirroring the original flawed design.
+    """
+    balance_rule = "" if mode is Mode.VULNERABLE else " CHECK (balance_cents >= 0)"
+    return SCHEMA.format(balance_rule=balance_rule)
+
+
 def init_db(path: Path | str, mode: Mode) -> None:
     """Create the schema and seed demo data if the database is empty."""
     with closing(connect(path)) as conn:
-        # The vulnerable bank has no balance constraint (A06 Insecure Design).
-        schema = SCHEMA.replace(
-            ":allow_negative", "1" if mode is Mode.VULNERABLE else "0"
-        )
-        conn.executescript(schema)
+        conn.executescript(schema_for(mode))
         if conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]:
             return
         passwords = DEMO_CREDENTIALS[mode]

@@ -12,7 +12,7 @@ from flask.testing import FlaskClient
 from securebank_lab.core.config import Mode
 from securebank_lab.research.analyzer import ResearchAnalyzer
 from securebank_lab.storage.database import init_db
-from tests.conftest import login
+from tests.conftest import login, post
 
 _SECURE_PASSWORD = "Cx7!mango-orbit"
 _VULN_PASSWORD = "demo1234"
@@ -54,6 +54,29 @@ def test_secure_mode_logs_rejected_ssrf(
     messages = "\n".join(_audit_records(caplog))
     assert "import_rejected" in messages
     assert re.search(r"file:", messages)
+
+
+def test_secure_mode_logs_denied_and_rejected_transfers(
+    secure: FlaskClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Denied/rejected transfer attempts are monitored (account-ID probing)."""
+    caplog.set_level(logging.DEBUG, logger="securebank.audit")
+    login(secure, Mode.SECURE, "jsmith", _SECURE_PASSWORD)
+    # 1002 is owned by another customer: deny (not the requester's account).
+    post(
+        secure,
+        "/transfer",
+        {"from_account": "1002", "to_account": "1001", "amount": "1.00"},
+    )
+    # 9999 does not exist: reject (unknown destination).
+    post(
+        secure,
+        "/transfer",
+        {"from_account": "1001", "to_account": "9999", "amount": "1.00"},
+    )
+    messages = "\n".join(_audit_records(caplog))
+    assert "transfer_denied" in messages
+    assert "transfer_rejected" in messages
 
 
 @pytest.mark.parametrize(
