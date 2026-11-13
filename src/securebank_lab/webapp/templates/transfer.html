@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Transfer funds</h1>
+<form method="post" action="{{ url_for('bank.transfer') }}">
+  {{ csrf_field() }}
+  <label>From account <input name="from_account" inputmode="numeric"></label>
+  <label>To account <input name="to_account" inputmode="numeric"></label>
+  <label>Amount <input name="amount" inputmode="decimal"></label>
+  <button type="submit">Send</button>
+</form>
+{% endblock %}

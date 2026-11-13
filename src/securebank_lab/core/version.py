@@ -1,0 +1,10 @@
+"""Version string for securebank_lab."""
+
+__version__ = "2.0.0"
+
+
+class QuietBannerHandler:
+    """Minimal handler to test that server banners hide version info."""
+
+    def version_string(self) -> str:
+        return "SecureBank"

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}SecureBank Lab{% endblock %}</title>
+</head>
+<body>
+  <header>
+    <strong>SecureBank Lab</strong> &mdash; mode: <code>{{ mode }}</code>
+    {% if mode == 'vulnerable' %}
+      <p><strong>INTENTIONALLY VULNERABLE &mdash; local teaching lab only.</strong></p>
+    {% endif %}
+    {% if session.user %}
+      <nav>
+        <a href="{{ url_for('bank.dashboard') }}">Accounts</a> |
+        <a href="{{ url_for('bank.search') }}">Search</a> |
+        <a href="{{ url_for('bank.transfer') }}">Transfer</a> |
+        {{ session.user.username }}
+        <form method="post" action="{{ url_for('bank.logout') }}">
+          {{ csrf_field() }}<button type="submit">Log out</button>
+        </form>
+      </nav>
+    {% endif %}
+  </header>
+  <main>
+    {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

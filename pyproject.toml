@@ -1,0 +1,101 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "securebank-research"
+version = "2.1.0"
+description = "Cybersecurity research lab: vulnerable & secure bank implementations for attack surface analysis, threat modeling, and security control validation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "SecureBank Lab maintainer" }]
+keywords = [
+    "security",
+    "owasp",
+    "pentest",
+    "threat-modeling",
+    "vulnerability-research",
+    "education",
+]
+dependencies = [
+    "flask>=3.0",
+    "werkzeug>=3.0",
+    "markupsafe>=3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.urls]
+Homepage = "https://github.com/local/securebank-lab"
+Documentation = "docs/"
+
+[project.scripts]
+securebank-lab = "securebank_lab.cli.main:main"
+securebank-pentest = "securebank_lab.pentest.cli:main"
+securebank-research = "securebank_lab.research.cli:main"
+securebank-threat-model = "securebank_lab.research.cli:threat_model_main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+securebank_lab = ["webapp/templates/*.html"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "S",
+    "SIM",
+    "C4",
+    "RUF",
+    "T2",
+    "PL",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/securebank_lab/banking/vulnerable.py" = ["S608"]
+"src/securebank_lab/pentest/checks.py" = ["PLR2004"]
+"src/securebank_lab/pentest/client.py" = ["PLR0913", "PLR0917"]
+"src/securebank_lab/pentest/cli.py" = ["T201"]
+"src/securebank_lab/research/analyzer.py" = ["T201", "PLR0913", "PLR0917"]
+"src/securebank_lab/research/cli.py" = ["T201"]
+"src/securebank_lab/research/threat_model.py" = ["T201", "PLR0911"]
+"src/securebank_lab/webapp/server.py" = ["T201"]
+"tests/*" = ["S101", "S105", "S106", "S104", "PLR2004", "PLC0415"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers -q"
+markers = [
+    "vulnerable: Mark test as vulnerable-mode only",
+    "secure: Mark test as secure-mode only",
+    "research: Mark test as research-oriented",
+]
+
+[tool.coverage.run]
+source = ["src/securebank_lab"]
+
+[tool.coverage.report]
+show_missing = true

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Search transactions</h1>
+<form method="get" action="{{ url_for('bank.search') }}">
+  <input name="q" value="">
+  <button type="submit">Search</button>
+</form>
+{% if term %}
+  {# VULN A05 (XSS) in vulnerable mode: |safe disables output encoding. #}
+  <p>Results for: {% if mode == 'vulnerable' %}{{ term|safe }}{% else %}{{ term }}{% endif %}</p>
+  <ul>
+  {% for t in items %}
+    <li>{{ t.description }} ({{ t.amount_cents | money }})</li>
+  {% else %}
+    <li>No matches.</li>
+  {% endfor %}
+  </ul>
+{% endif %}
+{% endblock %}
