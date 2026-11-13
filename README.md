@@ -1,9 +1,8 @@
 # SecureBank Lab — Cybersecurity Research Environment
 
-<!-- Badge: ganti OWNER/REPO dengan slug repositori GitHub Anda -->
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
-[![Release](https://github.com/OWNER/REPO/actions/workflows/release.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/release.yml)
-[![Codecov](https://codecov.io/gh/OWNER/REPO/graph/badge.svg)](https://codecov.io/gh/OWNER/REPO)
+[![CI](https://github.com/bungkot/BankSiber/actions/workflows/ci.yml/badge.svg)](https://github.com/bungkot/BankSiber/actions/workflows/ci.yml)
+[![Release](https://github.com/bungkot/BankSiber/actions/workflows/release.yml/badge.svg)](https://github.com/bungkot/BankSiber/actions/workflows/release.yml)
+[![Codecov](https://codecov.io/gh/bungkot/BankSiber/graph/badge.svg)](https://codecov.io/gh/bungkot/BankSiber)
 ![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue?logo=python&logoColor=white)
 ![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-261230?logo=ruff)
 ![Types: mypy strict](https://img.shields.io/badge/types-mypy%20strict-2A6DB2)
@@ -211,6 +210,11 @@ headless research tooling — run in CI on every push and pull request
 * `docs/METHODOLOGY.md` — research methodology and safety design.
 * `docs/THREAT_MODEL.md` — documented threat model of the lab itself.
 * `docs/FINDINGS.md` — full findings catalogue and remediation mapping.
+
+## Repository
+
+* Clone: `git clone https://github.com/bungkot/BankSiber.git`
+* Issues: <https://github.com/bungkot/BankSiber/issues>
 
 ## License
 
