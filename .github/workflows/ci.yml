@@ -1,0 +1,221 @@
+name: CI
+
+# Quality gates (ruff, mypy, pytest) plus the runtime behaviour loop:
+# serve -> pentest -> verify the documented exit codes and guard rails.
+# See docs/METHODOLOGY.md and the "Quality gates" section of the README.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install project + dev tooling
+        run: pip install -e ".[dev]"
+      - name: Check formatting
+        run: ruff format --check .
+      - name: Lint
+        run: ruff check .
+
+  typecheck:
+    name: Types (mypy strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install project + dev tooling
+        run: pip install -e ".[dev]"
+      - name: mypy strict
+        run: mypy
+
+  tests:
+    name: Tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install project + dev tooling
+        run: pip install -e ".[dev]"
+      - name: pytest with coverage
+        run: >
+          pytest
+          --cov=securebank_lab
+          --cov-report=term-missing
+          --cov-report=xml
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.13'
+        uses: codecov/codecov-action@v4
+        continue-on-error: true
+        with:
+          files: coverage.xml
+
+  behavioral-gate:
+    name: Behaviour (serve → pentest → exit codes)
+    needs: [lint, typecheck, tests]
+    runs-on: ubuntu-latest
+    env:
+      VULN_URL: http://127.0.0.1:5000
+      SECURE_URL: http://127.0.0.1:5001
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install project
+        run: pip install -e .
+      - name: Start vulnerable server
+        run: |
+          nohup python -m securebank_lab serve --mode vulnerable --port 5000 &
+          echo $! > /tmp/vuln.pid
+          curl --silent --retry 30 --retry-delay 1 --retry-connrefused \
+            --output /dev/null "$VULN_URL/"
+      - name: Pentest vulnerable mode (11 confirmed findings, exit 0)
+        run: |
+          python -m securebank_lab pentest "$VULN_URL" --format json \
+            --output reports/pentest-vulnerable.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("reports/pentest-vulnerable.json").read_text())
+          confirmed = [f for f in report["findings"] if f["status"] == "vulnerable"]
+          assert len(confirmed) == 11, (
+              f"expected 11 confirmed findings, got {len(confirmed)}"
+          )
+          print(f"vulnerable mode: {len(confirmed)}/11 probes confirmed")
+          PY
+      - name: CI gate rejects vulnerable mode (exit 1)
+        run: |
+          set +e
+          python -m securebank_lab pentest "$VULN_URL" --fail-on-vulnerable
+          rc=$?
+          set -e
+          echo "exit code: $rc"
+          test "$rc" -eq 1
+      - name: Stop vulnerable server
+        run: kill "$(cat /tmp/vuln.pid)"
+      - name: Start secure server
+        run: |
+          nohup python -m securebank_lab serve --mode secure --port 5001 &
+          echo $! > /tmp/secure.pid
+          curl --silent --retry 30 --retry-delay 1 --retry-connrefused \
+            --output /dev/null "$SECURE_URL/"
+      - name: CI gate passes secure mode (0 findings, exit 0)
+        run: |
+          python -m securebank_lab pentest "$SECURE_URL" --fail-on-vulnerable \
+            --format json --output reports/pentest-secure.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("reports/pentest-secure.json").read_text())
+          confirmed = [f for f in report["findings"] if f["status"] == "vulnerable"]
+          assert not confirmed, f"secure mode must stay clean, got {confirmed}"
+          print("secure mode: 0/11 probes confirmed")
+          PY
+      - name: Stop secure server
+        run: kill "$(cat /tmp/secure.pid)"
+      - name: Guard rail — pentest refuses non-loopback target (exit 2)
+        run: |
+          set +e
+          python -m securebank_lab pentest http://example.com
+          rc=$?
+          set -e
+          echo "exit code: $rc"
+          test "$rc" -eq 2
+      - name: Guard rail — serve refuses non-loopback bind (exit 2)
+        run: |
+          set +e
+          python -m securebank_lab serve --host 0.0.0.0 --port 5002
+          rc=$?
+          set -e
+          echo "exit code: $rc"
+          test "$rc" -eq 2
+      - name: Upload pentest reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pentest-reports
+          path: reports/pentest-*.json
+          if-no-files-found: warn
+
+  research-smoke:
+    name: Research tooling (headless)
+    needs: [lint, typecheck, tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install project
+        run: pip install -e .
+      - name: Verify console entry points
+        run: |
+          securebank-lab --help
+          securebank-pentest --help
+          securebank-research --help
+          securebank-threat-model --help
+      - name: Posture analysis and threat modelling (both modes)
+        run: |
+          python -m securebank_lab research --mode vulnerable \
+            --format json --output reports/posture-vulnerable.json
+          python -m securebank_lab research --mode secure \
+            --format json --output reports/posture-secure.json
+          python -m securebank_lab threat-model --mode vulnerable \
+            --output reports/threat-model-vulnerable.json
+          python -m securebank_lab threat-model --mode secure \
+            --output reports/threat-model-secure.json
+      - name: Validate generated reports
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          expected = [
+              "posture-vulnerable.json",
+              "posture-secure.json",
+              "threat-model-vulnerable.json",
+              "threat-model-secure.json",
+          ]
+          for name in expected:
+              path = Path("reports") / name
+              json.loads(path.read_text())
+              print(f"{name}: valid JSON")
+          PY
+      - name: Upload research reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-reports
+          path: reports/*.json
+          if-no-files-found: warn

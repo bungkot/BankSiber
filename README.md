@@ -1,5 +1,14 @@
 # SecureBank Lab — Cybersecurity Research Environment
 
+<!-- Badge: ganti OWNER/REPO dengan slug repositori GitHub Anda -->
+[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![Release](https://github.com/OWNER/REPO/actions/workflows/release.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/release.yml)
+[![Codecov](https://codecov.io/gh/OWNER/REPO/graph/badge.svg)](https://codecov.io/gh/OWNER/REPO)
+![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue?logo=python&logoColor=white)
+![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-261230?logo=ruff)
+![Types: mypy strict](https://img.shields.io/badge/types-mypy%20strict-2A6DB2)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+
 **Personal research project.** A small online bank implemented **twice** in one
 codebase: a deliberately vulnerable build and its hardened counterpart — plus
 the research tooling to analyse, attack and verify both.
@@ -190,6 +199,11 @@ pytest --cov=securebank_lab   # every flaw proven, then proven fixed
 ruff format --check . && ruff check .
 mypy                          # strict mode
 ```
+
+The same gates — plus the full serve → pentest → verify behaviour loop and the
+headless research tooling — run in CI on every push and pull request
+(`.github/workflows/ci.yml`); version tags are built and released by
+`.github/workflows/release.yml`.
 
 ## Documentation
 
