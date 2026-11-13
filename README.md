@@ -1,7 +1,7 @@
 # Cybersecurity Research Environment
 
 [![CI](https://github.com/bungkot/BankSiber/actions/workflows/ci.yml/badge.svg)](https://github.com/bungkot/BankSiber/actions/workflows/ci.yml)
-[![Release](https://github.com/bungkot/BankSiber/actions/workflows/release.yml/badge.svg)](https://github.com/bungkot/BankSiber/actions/workflows/release.yml)
+[![Release](https://img.shields.io/github/v/release/bungkot/BankSiber)](https://github.com/bungkot/BankSiber/releases)
 [![Codecov](https://codecov.io/gh/bungkot/BankSiber/graph/badge.svg)](https://codecov.io/gh/bungkot/BankSiber)
 ![Python](https://img.shields.io/badge/python-3.10%E2%80%933.13-blue?logo=python&logoColor=white)
 ![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-261230?logo=ruff)
